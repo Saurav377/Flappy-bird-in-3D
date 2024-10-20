@@ -15,16 +15,20 @@ public class birdScript : MonoBehaviour
     public bool dead = false;
     public TMP_Text scoreText, highScoreText;
     public int score = 0;
-    public GameObject gameOver, pauseMenu, fpsCam, Cam, startMenu, pauseButton;
+    public GameObject gameOver, pauseMenu, fpsCam, Cam, startMenu, pauseButton, beak, switchCamButton;
     int highScore;
-    bool paused = false, fps;
+    bool paused = false;
     static bool gameStarted;
     AudioSource audio;
     public AudioClip crash;
+    public Animator anim1, anim2;
+    static bool fps;
+    SphereCollider sphereCollider;
 
     // Start is called before the first frame update
     void Start()
     {
+
         Application.targetFrameRate = 60;
         rb = GetComponent<Rigidbody>();
         gameOver.SetActive(false);
@@ -36,6 +40,15 @@ public class birdScript : MonoBehaviour
             pauseButton.SetActive(false);
         }
         audio = gameObject.GetComponent<AudioSource>();
+        sphereCollider = GetComponent<SphereCollider>();
+        if (fps)
+        {
+            FpsCam();
+        }
+        else
+        {
+            TpsCam();
+        }
     }
 
     // Update is called once per frame
@@ -67,6 +80,10 @@ public class birdScript : MonoBehaviour
                     // Rotate the bird downwards while falling
                     transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(30f, transform.eulerAngles.y, transform.eulerAngles.z), rotateSpeed * Time.deltaTime);
                 }
+                else
+                {
+                    transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(30f, transform.eulerAngles.y, transform.eulerAngles.z), rotateSpeed/2 * Time.deltaTime);
+                }
             }
             else if (rb.velocity.y > 0) // When jumping
             {
@@ -75,7 +92,12 @@ public class birdScript : MonoBehaviour
                     // Rotate the bird upwards while jumping
                     transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(-30f, transform.eulerAngles.y, transform.eulerAngles.z), rotateSpeed * Time.deltaTime);
                 }
+                else
+                {
+                    transform.rotation = Quaternion.Lerp(transform.rotation, Quaternion.Euler(-30f, transform.eulerAngles.y, transform.eulerAngles.z), rotateSpeed/2 * Time.deltaTime);
+                }
             }
+            
         }
         else
         {
@@ -88,6 +110,18 @@ public class birdScript : MonoBehaviour
                 PlayerPrefs.SetInt("HighScore", highScore);
             }
             highScoreText.text = "High Score: " + highScore.ToString();
+            // Detect mouse click for jumping (ignore clicks on UI elements)
+            if (Input.GetMouseButtonDown(0))
+            {
+                Retry();
+            }
+
+            // Detect touch input for jumping (Android support) (ignore touches on UI elements)
+            if (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began && !IsPointerOverUI())
+            {
+                Retry();
+            }
+            switchCamButton.SetActive(false);  
         }
 
         // Pause functionality
@@ -99,21 +133,7 @@ public class birdScript : MonoBehaviour
         // Toggle between first-person and third-person views
         if (Input.GetKeyDown("v"))
         {
-            if (fps)
-            {
-                fps = false;
-                fpsCam.SetActive(false);
-                Cam.SetActive(true);
-            }
-            else
-            {
-                fps = true;
-                fpsCam.SetActive(true);
-                Cam.SetActive(false);
-                Quaternion currentRotation = transform.rotation;
-                Quaternion newRotation = Quaternion.Euler(0, currentRotation.eulerAngles.y, currentRotation.eulerAngles.z);
-                transform.rotation = newRotation;
-            }
+            SwitchCam();
         }
     }
 
@@ -121,6 +141,8 @@ public class birdScript : MonoBehaviour
     {
         // Apply a consistent upward force to the bird each time
         rb.velocity = new Vector3(rb.velocity.x, jumpForce, rb.velocity.z);
+        anim1.SetTrigger("fly");
+        anim2.SetTrigger("fly"); ;
         audio.Play();
     }
 
@@ -187,5 +209,43 @@ public class birdScript : MonoBehaviour
         }
 
         return false;
+    }
+
+    void FpsCam()
+    {
+        fps = true;
+        fpsCam.SetActive(true);
+        Cam.SetActive(false);
+        beak.SetActive(false);
+        Quaternion currentRotation = transform.rotation;
+        Quaternion newRotation = Quaternion.Euler(0, currentRotation.eulerAngles.y, currentRotation.eulerAngles.z);
+        transform.rotation = newRotation;
+        RenderSettings.fog = true;
+        sphereCollider.radius = 0.7f;
+    }
+
+    void TpsCam()
+    {
+        fps = false;
+        fpsCam.SetActive(false);
+        Cam.SetActive(true);
+        beak.SetActive(true);
+        RenderSettings.fog = false;
+        sphereCollider.radius = 1f;
+    }
+
+    public void SwitchCam()
+    {
+        if (!dead)
+        {
+            if (fps)
+            {
+                TpsCam();
+            }
+            else
+            {
+                FpsCam();
+            }
+        }
     }
 }
